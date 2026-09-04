@@ -115,6 +115,10 @@ export const translations: Record<Language, Dict> = {
     refreshConfirm:
       'Refresh "{name}" from its URL? This replaces your local changes with the latest version at that link.',
     refreshFailed: "Couldn't refresh from that URL.",
+    cookieBannerText:
+      "LoocalProject stores your language, projects and preferences in this browser's local storage — not in tracking cookies. See our",
+    cookieBannerPolicyLink: "Cookie Policy",
+    cookieBannerAccept: "Accept",
   },
   es: {
     appName: "LoocalProject",
@@ -229,6 +233,10 @@ export const translations: Record<Language, Dict> = {
     refreshConfirm:
       '¿Actualizar "{name}" desde su URL? Esto reemplaza tus cambios locales con la última versión de ese enlace.',
     refreshFailed: "No se pudo actualizar desde esa URL.",
+    cookieBannerText:
+      "LoocalProject guarda tu idioma, tus proyectos y tus preferencias en el almacenamiento local de este navegador, no en cookies de seguimiento. Consulta nuestra",
+    cookieBannerPolicyLink: "Política de cookies",
+    cookieBannerAccept: "Aceptar",
   },
 };
 

@@ -21,6 +21,14 @@ export default function SiteFooter() {
             www.marlonfalcon.com
           </a>
         </p>
+        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <a href="/terms" className="hover:text-neutral-600">
+            Términos y condiciones
+          </a>
+          <a href="/cookies" className="hover:text-neutral-600">
+            Política de cookies
+          </a>
+        </p>
       </div>
       <div className="flex items-center gap-3">
         <a

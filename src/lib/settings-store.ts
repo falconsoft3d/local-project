@@ -7,6 +7,8 @@ interface SettingsState {
   setLanguage: (language: Language) => void;
   heroCollapsed: boolean;
   setHeroCollapsed: (collapsed: boolean) => void;
+  cookieConsent: boolean;
+  setCookieConsent: (accepted: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -16,6 +18,8 @@ export const useSettingsStore = create<SettingsState>()(
       setLanguage: (language) => set({ language }),
       heroCollapsed: false,
       setHeroCollapsed: (heroCollapsed) => set({ heroCollapsed }),
+      cookieConsent: false,
+      setCookieConsent: (cookieConsent) => set({ cookieConsent }),
     }),
     { name: "local-project.settings.v1" }
   )
