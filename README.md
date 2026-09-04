@@ -92,3 +92,8 @@ src/lib/                 Scheduling engine, store, import/export parsers (MS Pro
 
 Next.js (App Router) · TypeScript · Tailwind CSS · Zustand (persisted to `localStorage`) ·
 date-fns · gray-matter + react-markdown (blog)
+
+
+# Author
+Marlon Falcón Hernández
+www.marlonfalon.com
