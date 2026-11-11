@@ -11,7 +11,6 @@ import { plural } from "@/lib/i18n";
 import { isFileSystemAccessSupported, serializeProjectFile } from "@/lib/projectFile";
 import { decodeImportBuffer } from "@/lib/importFormats";
 import Modal from "./Modal";
-import LanguageSwitcher from "./LanguageSwitcher";
 import {
   PencilIcon,
   CopyIcon,
@@ -174,6 +173,20 @@ export default function ProjectList() {
         </div>
       )}
 
+      <Link
+        href="/manual"
+        className="mb-8 flex items-center gap-4 rounded-xl border border-green-200 bg-green-50 px-5 py-4 hover:border-green-500"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-600 text-lg text-white">
+          ?
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-neutral-900">{t("homeManualTitle")}</span>
+          <span className="block text-xs text-neutral-600">{t("homeManualText")}</span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-green-700">{t("homeManualCta")} →</span>
+      </Link>
+
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900">
@@ -182,7 +195,6 @@ export default function ProjectList() {
           <p className="mt-1 text-sm text-neutral-500">{t("appTagline")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <LanguageSwitcher />
           <input
             ref={fileInputRef}
             type="file"
@@ -347,8 +359,7 @@ export default function ProjectList() {
                       />
                     </button>
                   )}
-                  {p.source?.format === "msproject-xml" && (
-                    <button
+                  <button
                       onClick={() => {
                         const xml = exportMsProjectXml(p.id);
                         if (!xml) {
@@ -371,7 +382,6 @@ export default function ProjectList() {
                     >
                       <FileCodeIcon />
                     </button>
-                  )}
                   {linked ? (
                     <button
                       onClick={() => {

@@ -7,23 +7,54 @@ There's no backend and no account.
 
 ## Features
 
-### Task outline & scheduling
+### Task outline & scheduling (construction scheduling — "Programación de obra")
 
-- Tasks, subtasks and milestones in a hierarchical outline (indent / outdent / reorder /
-  delete), with automatic WBS numbering and summary-task rollups (dates, duration, % complete
-  computed from children).
-- Business-day scheduling: durations in working days, start/finish dates, and finish-to-start
-  predecessors that automatically cascade downstream tasks.
-- **Gantt chart** with Day / Week / Month zoom, weekend shading, a "today" marker, and
-  connector lines between predecessor/successor tasks.
-  - **Drag a task bar** to move its start date; **drag its right edge** to resize the
-    duration — both snap to business days and re-cascade dependent tasks.
-  - **Custom bar colors** per task, picked from a palette in the task table.
-- **Resources**: color-coded, classified as Labor / Material / Equipment, assignable to any
-  task from the task table or the Resources panel.
-- **Adjust schedule**: a one-click bulk action that sets every task to a fixed number of days
-  (default 8, editable) or to a duration based on how many labor resources are assigned to
-  each task, chaining all tasks back-to-back automatically.
+The scheduling module follows the *Programación de obra · BIM 2.0* manual: a budget's
+chapters (summary tasks) and items (leaf tasks) are scheduled with a full CPM engine.
+
+- **Outline**: chapters, items and milestones (+ Capítulo / + Partida / + Hito, indent,
+  outdent, reorder, delete), editable codes (`01.02`) with WBS fallback, Undo (Ctrl+Z),
+  expand / collapse all.
+- **Work calendar**: working weekdays, workday start/end, hours per day and holidays or
+  closures (single days or ranges), with one-click Spanish national holidays. Weekends and
+  holidays are shaded in the Gantt and skipped by the engine.
+- **Scheduling settings** (Programación panel): duration type — *Performance*
+  (quantity ÷ performance, locked), *Date* (dates rule) or *Manual*; schedule from the project
+  start (ASAP) or finish (ALAP); automatic scheduling; status date; active baseline.
+- **CPM engine**: early/late dates, total and free float, critical path; links FS/SS/FF/SF
+  (FC/CC/FF/CF) with lags in working days, elapsed days or % of the predecessor; links to a
+  chapter apply to all its items; circular links are rejected; the eight MS Project
+  constraints plus deadlines (negative float, never moves the task); elapsed durations;
+  interruptions (split tasks); started tasks keep their actual start.
+- **Gantt**: editable table (COD, Nombre, Duración, Inicio, Fin, Predec., Recursos, % Cert.,
+  % Fís., Holgura); predecessors typed with code syntax (`02.02FC+7dt`, `03.03CC+5`,
+  `04.01CC+50%`, `05.02FF`) or picked from a searchable list that disables cycle-creating
+  tasks; drag/resize bars; critical path in red, *only critical* / *negative float* filters,
+  baseline bars, certified fill, physical-progress strip, dotted interruption gaps, deadline
+  markers, status-date and today lines; Day / Week / Month; **Excel** export with the Gantt
+  painted in cells and **PDF** via the print dialog.
+- **Task form**: dates, duration, elapsed flag, constraint, deadline, floats, physical
+  progress, certified %, actual start/finish, remaining duration, baseline and finish
+  variance, quantity / unit / price / amount, performance, colour, predecessors with
+  type/lag/unit, and interruptions.
+- **Resources**: Labor / Material / Equipment with price, unit and *Máx. unidades*; per-task
+  quantity, price and crew; a **histogram** of hours vs capacity (optionally including other
+  projects in the browser), over-allocation list, usage table and **resource leveling**
+  (within float or not).
+- **Tracking**: multiple baselines (one active), *Update as scheduled*, *Reschedule remaining
+  work*, the **Variance** table (actual dates and progress editable), earned-value photos,
+  **S-curve** (PV, EV, AC, certified, current schedule; SPI, CPI, EAC; actual cost entries)
+  and a printable **tracking report** (delayed tasks with reason, critical tasks, overloaded
+  resources).
+- **Network diagram** with early/late boxes, float, link labels, critical path and
+  dependency highlighting, plus a **checks** panel with the manual's checklists.
+- **Budget mode** (*Schedule | Budget* switch): resources carry the costs and are classified as
+  MO / MAT / EQ / SC (labor, materials, equipment, subcontracts); each item's price is the sum
+  of its resources (yield × price), chapters are only organisational (sum of their items), with
+  totals per type and a resource price list. **Reports** (PDF and Excel): the budget down to
+  chapters, items or resources, and the resource quantity report grouped by MO / MAT / EQ / SC.
+- **Adjust**: a quick first draft that chains every item back-to-back (fixed days or based
+  on labor resources) — it replaces all links.
 
 ### Import & export
 
@@ -55,6 +86,10 @@ There's no backend and no account.
 
 ### Site
 
+- **User manual** at `/manual` (linked from the home page and the top menu), in Spanish and
+  English.
+- **Light / dark mode** toggle (follows the system the first time), and **ES / EN** language.
+
 - Marketing shell with a top nav (**Home / Blog / Contacto**) and footer (WhatsApp and GitHub
   links) around the project list, independent of the project workspace itself.
 - **Blog**, backed by Markdown files in `content/blog/*.md` (frontmatter: `title`, `date`,
@@ -63,9 +98,8 @@ There's no backend and no account.
 
 ### Other
 
-- **English / Spanish** UI toggle, saved to `localStorage`.
-- Light theme with a consistent green accent throughout (independent of the OS/browser color
-  scheme).
+- **English / Spanish** UI toggle and **light / dark** theme, saved to `localStorage` and
+  applied before the first paint.
 - Collapsible hero image on the home page.
 
 ## Getting started

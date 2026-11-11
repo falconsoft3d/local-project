@@ -1,6 +1,10 @@
+"use client";
+
+import { useT } from "@/lib/useT";
 import { WhatsAppIcon, GitHubIcon } from "./icons";
 
 export default function SiteFooter() {
+  const t = useT();
   return (
     <footer className="mx-auto flex w-full max-w-5xl items-center justify-between border-t border-neutral-200 px-6 py-6 text-xs text-neutral-400">
       <div>
@@ -22,11 +26,14 @@ export default function SiteFooter() {
           </a>
         </p>
         <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <a href="/manual" className="hover:text-neutral-600">
+            {t("navManual")}
+          </a>
           <a href="/terms" className="hover:text-neutral-600">
-            Términos y condiciones
+            {t("footerTerms")}
           </a>
           <a href="/cookies" className="hover:text-neutral-600">
-            Política de cookies
+            {t("footerCookies")}
           </a>
         </p>
       </div>

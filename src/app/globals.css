@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* `dark:` utilities follow the app's own theme switch (data-theme on <html>), not the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -10,6 +13,140 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+
+/* ───────────── Dark mode ─────────────
+ * The whole UI is written with Tailwind's neutral/green/red… palette, so dark mode remaps
+ * those palette variables instead of adding dark: classes everywhere. Neutrals are inverted;
+ * the light tints (50-200) become dark tints and the dark shades (700-900) become light,
+ * while the saturated middle (300-600: buttons, bars, accents) stays the same. Screen only:
+ * printing and PDF always use the light palette. */
+@media screen {
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --background: oklch(16% 0 0);
+    --foreground: oklch(92% 0 0);
+    --surface: oklch(20.5% 0 0);
+    --color-neutral-50: oklch(23% 0 0);
+    --color-neutral-100: oklch(26% 0 0);
+    --color-neutral-200: oklch(32% 0 0);
+    --color-neutral-300: oklch(40% 0 0);
+    --color-neutral-400: oklch(58% 0 0);
+    --color-neutral-500: oklch(68% 0 0);
+    --color-neutral-600: oklch(76% 0 0);
+    --color-neutral-700: oklch(84% 0 0);
+    --color-neutral-800: oklch(90% 0 0);
+    --color-neutral-900: oklch(95% 0 0);
+    --color-neutral-950: oklch(98% 0 0);
+    --color-green-50: oklch(25% 0.035 150);
+    --color-green-100: oklch(29% 0.055 150);
+    --color-green-200: oklch(35% 0.075 150);
+    --color-green-700: oklch(70% 0.15 150);
+    --color-green-800: oklch(80% 0.11 150);
+    --color-green-900: oklch(88% 0.07 150);
+    --color-red-50: oklch(25% 0.035 25);
+    --color-red-100: oklch(29% 0.055 25);
+    --color-red-200: oklch(35% 0.075 25);
+    --color-red-700: oklch(70% 0.15 25);
+    --color-red-800: oklch(80% 0.11 25);
+    --color-red-900: oklch(88% 0.07 25);
+    --color-amber-50: oklch(25% 0.035 70);
+    --color-amber-100: oklch(29% 0.055 70);
+    --color-amber-200: oklch(35% 0.075 70);
+    --color-amber-700: oklch(70% 0.15 70);
+    --color-amber-800: oklch(80% 0.11 70);
+    --color-amber-900: oklch(88% 0.07 70);
+    --color-blue-50: oklch(25% 0.035 260);
+    --color-blue-100: oklch(29% 0.055 260);
+    --color-blue-200: oklch(35% 0.075 260);
+    --color-blue-700: oklch(70% 0.15 260);
+    --color-blue-800: oklch(80% 0.11 260);
+    --color-blue-900: oklch(88% 0.07 260);
+    --color-orange-50: oklch(25% 0.035 45);
+    --color-orange-100: oklch(29% 0.055 45);
+    --color-orange-200: oklch(35% 0.075 45);
+    --color-orange-700: oklch(70% 0.15 45);
+    --color-orange-800: oklch(80% 0.11 45);
+    --color-orange-900: oklch(88% 0.07 45);
+    --color-emerald-50: oklch(25% 0.035 163);
+    --color-emerald-100: oklch(29% 0.055 163);
+    --color-emerald-200: oklch(35% 0.075 163);
+    --color-emerald-700: oklch(70% 0.15 163);
+    --color-emerald-800: oklch(80% 0.11 163);
+    --color-emerald-900: oklch(88% 0.07 163);
+    --color-yellow-50: oklch(25% 0.035 95);
+    --color-yellow-100: oklch(29% 0.055 95);
+    --color-yellow-200: oklch(35% 0.075 95);
+    --color-yellow-700: oklch(70% 0.15 95);
+    --color-yellow-800: oklch(80% 0.11 95);
+    --color-yellow-900: oklch(88% 0.07 95);
+    --color-purple-50: oklch(25% 0.035 300);
+    --color-purple-100: oklch(29% 0.055 300);
+    --color-purple-200: oklch(35% 0.075 300);
+    --color-purple-700: oklch(70% 0.15 300);
+    --color-purple-800: oklch(80% 0.11 300);
+    --color-purple-900: oklch(88% 0.07 300);
+    --color-sky-50: oklch(25% 0.035 230);
+    --color-sky-100: oklch(29% 0.055 230);
+    --color-sky-200: oklch(35% 0.075 230);
+    --color-sky-700: oklch(70% 0.15 230);
+    --color-sky-800: oklch(80% 0.11 230);
+    --color-sky-900: oklch(88% 0.07 230);
+    --color-slate-50: oklch(25% 0.035 257);
+    --color-slate-100: oklch(29% 0.055 257);
+    --color-slate-200: oklch(35% 0.075 257);
+    --color-slate-700: oklch(70% 0.15 257);
+    --color-slate-800: oklch(80% 0.11 257);
+    --color-slate-900: oklch(88% 0.07 257);
+  }
+
+  /* White surfaces become the dark surface (text-white on buttons stays white). */
+  [data-theme="dark"] .bg-white,
+  [data-theme="dark"] .hover\:bg-white:hover,
+  [data-theme="dark"] .focus\:bg-white:focus {
+    background-color: var(--surface);
+  }
+  [data-theme="dark"] .bg-white\/90,
+  [data-theme="dark"] .bg-white\/95 {
+    background-color: color-mix(in oklab, var(--surface) 92%, transparent);
+  }
+  /* Light text that sits on the green header keeps its light value. */
+  [data-theme="dark"] .text-green-100,
+  [data-theme="dark"] .placeholder\:text-green-100::placeholder {
+    color: oklch(96.2% 0.044 156.743);
+  }
+  [data-theme="dark"] .text-green-50 {
+    color: oklch(98.2% 0.018 155.826);
+  }
+  /* Header bar and primary buttons: slightly deeper green on dark backgrounds. */
+  [data-theme="dark"] header.bg-green-600 {
+    background-color: oklch(45% 0.13 150);
+  }
+
+  /* Charts drawn with fixed SVG colours (network, histogram, S-curve, Gantt links). */
+  [data-theme="dark"] [fill="#ffffff"],
+  [data-theme="dark"] [fill="#fff"],
+  [data-theme="dark"] [fill="white"] { fill: var(--surface); }
+  [data-theme="dark"] [fill="#fafafa"], [data-theme="dark"] [stroke="#fafafa"] { fill: var(--surface); stroke: var(--surface); }
+  [data-theme="dark"] [fill="#f5f5f5"] { fill: var(--color-neutral-100); }
+  [data-theme="dark"] [stroke="#e5e5e5"] { stroke: var(--color-neutral-200); }
+  [data-theme="dark"] [fill="#e5e5e5"] { fill: var(--color-neutral-200); }
+  [data-theme="dark"] [stroke="#a3a3a3"] { stroke: var(--color-neutral-400); }
+  [data-theme="dark"] [fill="#a3a3a3"] { fill: var(--color-neutral-400); }
+  [data-theme="dark"] [fill="#737373"] { fill: var(--color-neutral-500); }
+  [data-theme="dark"] [fill="#525252"] { fill: var(--color-neutral-600); }
+  [data-theme="dark"] [stroke="#404040"] { stroke: var(--color-neutral-700); }
+  [data-theme="dark"] [fill="#171717"] { fill: var(--color-neutral-900); }
+  [data-theme="dark"] [stroke="#171717"] { stroke: var(--color-neutral-900); }
+  [data-theme="dark"] [fill="#fee2e2"] { fill: var(--color-red-100); }
+  [data-theme="dark"] [fill="#dcfce7"] { fill: var(--color-green-100); }
+  [data-theme="dark"] [fill="#bfdbfe"] { fill: oklch(42% 0.09 260); }
+  [data-theme="dark"] [fill="#fecaca"] { fill: oklch(42% 0.1 25); }
+
+  [data-theme="dark"] img {
+    filter: brightness(0.85);
+  }
 }
 
 body {
@@ -67,4 +204,24 @@ body {
   border-radius: 0.25em;
   padding: 0.15em 0.4em;
   font-size: 0.9em;
+}
+
+/* Gantt "PDF": the browser print dialog shows the Gantt as it is on screen. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  html,
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .gantt-scroll {
+    overflow: visible !important;
+    zoom: 0.6;
+  }
+  .gantt-scroll .sticky {
+    position: static !important;
+  }
 }
