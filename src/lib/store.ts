@@ -31,6 +31,7 @@ import {
   serializeProjectFile,
 } from "./projectFile";
 import { decodeImportBuffer, parseImportedContent } from "./importFormats";
+import { buildSampleProject } from "./sampleProject";
 
 export { RESOURCE_COLORS };
 
@@ -141,6 +142,8 @@ interface StoreState {
    * read/refresh only, since a browser can't write back to most file-sharing links. */
   projectUrls: Partial<Record<ID, string>>;
   createProject: (name: string) => ID;
+  /** Adds the built-in example project ("Cargar ejemplo") and returns its id. */
+  addSampleProject: (lang: "es" | "en") => ID;
   deleteProject: (id: ID) => void;
   renameProject: (id: ID, name: string) => void;
   duplicateProject: (id: ID) => ID;
@@ -274,6 +277,12 @@ export const useStore = create<StoreState>()(
         });
         set((s) => ({ projects: [...s.projects, project] }));
         return id;
+      },
+
+      addSampleProject: (lang) => {
+        const project = buildSampleProject(lang);
+        set((s) => ({ projects: [...s.projects, project] }));
+        return project.id;
       },
 
       deleteProject: (id) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
@@ -33,6 +34,8 @@ export default function ProjectList() {
   const fileStatus = useStore((s) => s.fileStatus);
   const projectUrls = useStore((s) => s.projectUrls);
   const createProject = useStore((s) => s.createProject);
+  const addSampleProject = useStore((s) => s.addSampleProject);
+  const router = useRouter();
   const deleteProject = useStore((s) => s.deleteProject);
   const renameProject = useStore((s) => s.renameProject);
   const duplicateProject = useStore((s) => s.duplicateProject);
@@ -71,6 +74,11 @@ export default function ProjectList() {
   const sorted = [...projects].sort((a, b) =>
     b.updatedAt.localeCompare(a.updatedAt),
   );
+
+  function loadSample() {
+    const id = addSampleProject(language === "en" ? "en" : "es");
+    router.push(`/project/${id}`);
+  }
 
   async function importFile(file: File) {
     const content = await decodeImportBuffer(await file.arrayBuffer());
@@ -231,6 +239,13 @@ export default function ProjectList() {
             {t("addFromUrl")}
           </button>
           <button
+            onClick={loadSample}
+            title={t("loadSampleHint")}
+            className="rounded-md border border-green-600 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
+          >
+            {t("loadSample")}
+          </button>
+          <button
             onClick={() => {
               setName(t("defaultNewProjectName"));
               setCreating(true);
@@ -243,8 +258,15 @@ export default function ProjectList() {
       </div>
 
       {sorted.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-neutral-300 py-20 text-center text-neutral-400">
-          {t("noProjectsYet")}
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
+          <p className="text-neutral-400">{t("noProjectsYet")}</p>
+          <button
+            onClick={loadSample}
+            className="rounded-md bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+          >
+            {t("loadSample")}
+          </button>
+          <p className="max-w-md text-xs text-neutral-500">{t("loadSampleHint")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -86,7 +86,7 @@ const es: ManualContent = {
       blocks: [
         {
           steps: [
-            "En **Inicio** pulsa **+ Nuevo proyecto** y ponle nombre, o pulsa **Importar** para abrir un archivo.",
+            "En **Inicio** pulsa **Cargar ejemplo** para abrir una obra de ejemplo completa (programación, presupuesto, línea base, avance y valor ganado) y probarlo todo, o **+ Nuevo proyecto** para empezar de cero, o **Importar** para abrir un archivo.",
             "Formatos admitidos: JSON de LoocalProject, XML de Microsoft Project y BC3 (FIEBDC-3). También puedes arrastrar el archivo sobre la imagen de inicio.",
             "Un BC3 trae capítulos, partidas, cantidades, precios y recursos (mano de obra, maquinaria y materiales), pero no fechas: usa **Ajustar** para un primer borrador y luego vincula las partidas.",
             "Abre el proyecto: verás la tabla editable a la izquierda y las barras del Gantt a la derecha.",
@@ -600,7 +600,7 @@ const en: ManualContent = {
       blocks: [
         {
           steps: [
-            "On **Home** press **+ New project** and name it, or press **Import** to open a file.",
+            "On **Home** press **Load example** to open a complete sample job (schedule, budget, baseline, progress and earned value) and try everything, or **+ New project** to start from scratch, or **Import** to open a file.",
             "Supported formats: LoocalProject JSON, Microsoft Project XML and BC3 (FIEBDC-3). You can also drop the file onto the home image.",
             "A BC3 brings chapters, items, quantities, prices and resources (labor, equipment and materials) but no dates: use **Adjust** for a first draft and then link the items.",
             "Open the project: the editable table is on the left and the Gantt bars on the right.",

@@ -5,6 +5,9 @@ export const scheduleTranslations: { en: Record<string, string>; es: Record<stri
   en: {
     themeSwitchToDark: "Dark mode",
     navHome: "Home",
+    loadSample: "Load example",
+    loadSampleHint:
+      "Adds a complete sample job (24-dwelling building) with schedule, links, budget by MO/MAT/EQ/SC, baseline, progress and earned value, to try every feature.",
     homeManualTitle: "How does it work?",
     homeManualText:
       "Step-by-step manual: calendar, links, critical path, resources, baseline, monthly tracking and earned value.",
@@ -276,6 +279,9 @@ export const scheduleTranslations: { en: Record<string, string>; es: Record<stri
   es: {
     themeSwitchToDark: "Modo oscuro",
     navHome: "Inicio",
+    loadSample: "Cargar ejemplo",
+    loadSampleHint:
+      "Añade una obra de ejemplo completa (edificio de 24 viviendas) con programación, vínculos, presupuesto por MO/MAT/EQ/SC, línea base, avance y valor ganado, para probar todas las funciones.",
     homeManualTitle: "¿Cómo funciona?",
     homeManualText:
       "Manual paso a paso: calendario, vínculos, ruta crítica, recursos, línea base, seguimiento mensual y valor ganado.",

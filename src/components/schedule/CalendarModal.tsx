@@ -4,52 +4,11 @@ import { useState } from "react";
 import { v4 as uuid } from "uuid";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/useT";
-import { hoursBetween } from "@/lib/calendar";
+import { hoursBetween, spanishHolidays } from "@/lib/calendar";
 import { defaultScheduleSettings } from "@/lib/normalize";
 import { scheduleProject } from "@/lib/cpm";
 import type { Holiday, ID, Project, WorkCalendar } from "@/lib/types";
 import Modal from "../Modal";
-
-/** Easter Sunday (Gregorian, anonymous algorithm). */
-function easter(year: number): Date {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-/** Spanish national holidays (fixed dates + Good Friday). Regional/local ones are added by hand. */
-function spanishHolidays(year: number): Holiday[] {
-  const fixed: [string, string][] = [
-    ["01-01", "Año Nuevo"],
-    ["01-06", "Epifanía del Señor"],
-    ["05-01", "Fiesta del Trabajo"],
-    ["08-15", "Asunción de la Virgen"],
-    ["10-12", "Fiesta Nacional de España"],
-    ["11-01", "Todos los Santos"],
-    ["12-06", "Día de la Constitución"],
-    ["12-08", "Inmaculada Concepción"],
-    ["12-25", "Navidad"],
-  ];
-  const gf = easter(year);
-  gf.setUTCDate(gf.getUTCDate() - 2);
-  const goodFriday = gf.toISOString().slice(0, 10);
-  return [
-    ...fixed.map(([md, name]) => ({ id: uuid(), from: `${year}-${md}`, name })),
-    { id: uuid(), from: goodFriday, name: "Viernes Santo" },
-  ].sort((x, y) => x.from.localeCompare(y.from));
-}
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 /** Display order Monday → Sunday. */
