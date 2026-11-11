@@ -8,7 +8,11 @@ import {
 } from "date-fns";
 import type { Locale } from "date-fns";
 import type { Zoom } from "./types";
-import { isWeekend } from "./schedule";
+import { Cal, dayNum } from "./calendar";
+
+function localISO(d: Date): string {
+  return format(d, "yyyy-MM-dd");
+}
 
 export const PX_PER_DAY: Record<Zoom, number> = {
   day: 36,
@@ -66,8 +70,10 @@ export interface HeaderTick {
 export function buildHeader(
   range: TimelineRange,
   zoom: Zoom,
-  locale?: Locale
+  locale?: Locale,
+  cal?: Cal
 ): { groups: HeaderGroup[]; ticks: HeaderTick[] } {
+  const c = cal ?? new Cal();
   const days: Date[] = [];
   for (let i = 0; i < range.totalDays; i++) days.push(addDays(range.start, i));
   const today = new Date();
@@ -97,7 +103,7 @@ export function buildHeader(
         label: format(d, "d"),
         left: i * range.pxPerDay,
         width: range.pxPerDay,
-        isWeekend: isWeekend(d),
+        isWeekend: !c.isWork(dayNum(localISO(d))),
         isToday: format(d, "yyyy-MM-dd") === todayKey,
       });
     });
@@ -134,14 +140,17 @@ export function buildHeader(
   return { groups, ticks };
 }
 
-export function weekendBands(range: TimelineRange): { left: number; width: number }[] {
+/** Shaded columns for non-working days (weekends and holidays of the calendar). */
+export function weekendBands(range: TimelineRange, cal?: Cal): { left: number; width: number }[] {
+  const c = cal ?? new Cal();
+  const startNum = dayNum(localISO(range.start));
+  const off = (i: number) => !c.isWork(startNum + i);
   const bands: { left: number; width: number }[] = [];
   let i = 0;
   while (i < range.totalDays) {
-    const d = addDays(range.start, i);
-    if (isWeekend(d)) {
+    if (off(i)) {
       const bandStart = i;
-      while (i < range.totalDays && isWeekend(addDays(range.start, i))) i++;
+      while (i < range.totalDays && off(i)) i++;
       bands.push({ left: bandStart * range.pxPerDay, width: (i - bandStart) * range.pxPerDay });
     } else {
       i++;

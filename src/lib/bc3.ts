@@ -8,26 +8,36 @@ import type { Project, Resource, ResourceKind, Task } from "./types";
  * Record types we use:
  *  ~V  version header ("FIEBDC-3/....")
  *  ~C  concept: code|unit|summary|price|date|type  (type: 0=partida/chapter, 1=mano de obra,
- *      2=maquinaria, 3=material)
+ *      2=maquinaria, 3=material). Price may hold several values separated by "\"; the first
+ *      is used.
  *  ~D  decomposition: parentCode|child\factor\qty\child2\factor2\qty2\...
+ *      For a chapter, qty is the measured quantity of each partida; for a partida, the yield
+ *      of each resource per unit of the partida.
  *      (the parent field conventionally carries a trailing "#" even when the concept's own
  *      code has none — we resolve it by trying the field as-is, then with the "#" stripped)
  *  ~T  long text/description for a concept
  * ~K (config) and ~M (mediciones/measurements) are not used — BC3 carries no scheduling
  * data at all, so imported tasks get a default 1-day duration; the "Adjust" feature is the
- * intended next step to size and chain them.
- */
+ * intended next step to size and chain them. Quantities, units and prices are imported so
+ * amounts, earned value and the resource histogram work straight away. */
 
 interface RawConcept {
   code: string;
   unit: string;
   summary: string;
+  price: number;
   type: number;
 }
 
 interface DecompChild {
   child: string;
   qty: number;
+}
+
+function parsePrice(raw: string | undefined): number {
+  const first = (raw ?? "").split("\\")[0].trim();
+  const n = Number(first.replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function isBc3(content: string): boolean {
@@ -61,12 +71,13 @@ export function parseBc3(content: string, fileName: string): Project {
     const fields = parts.slice(1, parts.length - 1);
 
     if (tag === "C") {
-      const [code, unit, summary, , , typeStr] = fields;
+      const [code, unit, summary, priceStr, , typeStr] = fields;
       if (!code) continue;
       concepts.set(code, {
         code,
         unit: unit ?? "",
         summary: summary ?? "",
+        price: parsePrice(priceStr),
         type: Number(typeStr) || 0,
       });
     } else if (tag === "D") {
@@ -76,8 +87,10 @@ export function parseBc3(content: string, fileName: string): Project {
       const list: DecompChild[] = [];
       for (let i = 0; i + 1 < tokens.length; i += 3) {
         const child = tokens[i];
-        const qty = Number(tokens[i + 2]) || 0;
-        if (child) list.push({ child, qty });
+        const factorRaw = (tokens[i + 1] ?? "").trim();
+        const factor = factorRaw === "" ? 1 : Number(factorRaw.replace(",", ".")) || 0;
+        const qty = Number((tokens[i + 2] ?? "").replace(",", ".")) || 0;
+        if (child) list.push({ child, qty: factor * qty });
       }
       if (list.length) rawDecomp.set(parentRaw, list);
     } else if (tag === "T") {
@@ -134,24 +147,29 @@ export function parseBc3(content: string, fileName: string): Project {
       name: concept.summary || code,
       color: RESOURCE_COLORS[resources.length % RESOURCE_COLORS.length],
       kind,
+      code: code.replace(/#+$/, ""),
+      unit: concept.unit || undefined,
+      price: concept.price || undefined,
       sourceUid: code,
     });
     resourceIdByCode.set(code, id);
     return id;
   }
 
-  function collectResources(code: string, seen: Set<string>): Set<string> {
-    const result = new Set<string>();
-    for (const { child } of decomp.get(code) ?? []) {
-      if (seen.has(child)) continue;
-      seen.add(child);
+  /** Resources of a partida with their yield per unit of the partida. Auxiliary
+   * sub-partidas (type 0 with their own decomposition) are flattened, multiplying yields. */
+  function collectResources(code: string, path: Set<string>, multiplier = 1, result = new Map<string, number>()): Map<string, number> {
+    for (const { child, qty } of decomp.get(code) ?? []) {
+      if (path.has(child)) continue;
       const concept = concepts.get(child);
       if (!concept) continue;
       if (concept.type === 0) {
-        for (const rid of collectResources(child, seen)) result.add(rid);
+        if (decomp.has(child)) {
+          collectResources(child, new Set(path).add(child), multiplier * qty, result);
+        }
       } else {
         const rid = getOrCreateResource(child);
-        if (rid) result.add(rid);
+        if (rid) result.set(rid, (result.get(rid) ?? 0) + multiplier * qty);
       }
     }
     return result;
@@ -160,7 +178,10 @@ export function parseBc3(content: string, fileName: string): Project {
   const tasks: Task[] = [];
   const today = snapToBusinessDay(toISO(new Date()));
 
-  function buildNode(code: string, parentId: string | null, visiting: Set<string>) {
+  const cleanCode = (code: string) => code.replace(/#+$/, "");
+  const round = (n: number) => Math.round(n * 1e6) / 1e6;
+
+  function buildNode(code: string, parentId: string | null, visiting: Set<string>, quantity: number) {
     if (visiting.has(code)) return;
     const concept = concepts.get(code);
     if (!concept) return;
@@ -176,14 +197,18 @@ export function parseBc3(content: string, fileName: string): Project {
         progress: 0,
         parentId,
         resourceIds: [],
-        predecessorIds: [],
+        predecessors: [],
+        code: cleanCode(code),
         sourceUid: code,
       });
-      for (const { child } of decomp.get(code) ?? []) {
-        buildNode(child, id, nextVisiting);
+      for (const { child, qty } of decomp.get(code) ?? []) {
+        buildNode(child, id, nextVisiting, qty);
       }
     } else {
-      const resourceIds = Array.from(collectResources(code, new Set(nextVisiting)));
+      const yields = collectResources(code, new Set(nextVisiting));
+      const resourceIds = Array.from(yields.keys());
+      const resourceAssignments: NonNullable<Task["resourceAssignments"]> = {};
+      for (const [rid, y] of yields) resourceAssignments[rid] = { quantity: round(y) };
       tasks.push({
         id,
         name: concept.summary || code,
@@ -192,15 +217,20 @@ export function parseBc3(content: string, fileName: string): Project {
         progress: 0,
         parentId,
         resourceIds,
-        predecessorIds: [],
+        resourceAssignments,
+        predecessors: [],
         notes: texts.get(code),
+        code: cleanCode(code),
+        unit: concept.unit || undefined,
+        quantity: round(quantity),
+        unitPrice: concept.price || undefined,
         sourceUid: code,
       });
     }
   }
 
-  for (const { child } of decomp.get(rootCode) ?? []) {
-    buildNode(child, null, new Set([rootCode]));
+  for (const { child, qty } of decomp.get(rootCode) ?? []) {
+    buildNode(child, null, new Set([rootCode]), qty || 1);
   }
 
   const rootConcept = concepts.get(rootCode);

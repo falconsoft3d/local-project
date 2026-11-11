@@ -1,20 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "date-fns";
 import { es, enUS } from "date-fns/locale";
-import type { ComputedTask, ID, Zoom } from "@/lib/types";
+import type { ComputedTask, ID, Project, Zoom } from "@/lib/types";
 import { HEADER_HEIGHT, ROW_HEIGHT } from "@/lib/constants";
-import { useLanguage } from "@/lib/useT";
+import { useLanguage, useT } from "@/lib/useT";
 import { useStore } from "@/lib/store";
-import { hexToRgba } from "@/lib/colors";
-import {
-  businessDaysBetweenInclusive,
-  computeEndDate,
-  fromISO,
-  snapToBusinessDay,
-  toISO,
-} from "@/lib/schedule";
+import { DEFAULT_TASK_COLOR, hexToRgba } from "@/lib/colors";
+import { fromISO, toISO } from "@/lib/schedule";
+import { Cal, dayNum, isoOf } from "@/lib/calendar";
 import {
   buildHeader,
   buildTimelineRange,
@@ -30,45 +25,70 @@ interface DragInfo {
   mode: DragMode;
   startClientX: number;
   originStart: string;
-  originDuration: number;
+  originEnd: string;
+}
+
+const CRITICAL_COLOR = "#dc2626";
+
+/** Darker shade of a hex colour (for the certified fill). */
+function shade(hex: string, factor: number): string {
+  const clean = hex.replace("#", "");
+  const n = parseInt(clean, 16);
+  const r = Math.round(((n >> 16) & 255) * factor);
+  const g = Math.round(((n >> 8) & 255) * factor);
+  const b = Math.round((n & 255) * factor);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
 export default function GanttChart({
   projectId,
+  project,
   rows,
   zoom,
   selectedId,
   onSelect,
+  showCritical,
+  showBaseline,
+  cal,
 }: {
   projectId: ID;
+  project: Project;
   rows: ComputedTask[];
   zoom: Zoom;
   selectedId: ID | null;
   onSelect: (id: ID) => void;
+  showCritical: boolean;
+  showBaseline: boolean;
+  cal: Cal;
 }) {
-  const updateTask = useStore((s) => s.updateTask);
-  const rawStart = rows.length
-    ? rows.reduce(
-        (m, t) => (t.computedStart < m ? t.computedStart : m),
-        rows[0].computedStart,
-      )
-    : null;
-  const rawEnd = rows.length
-    ? rows.reduce(
-        (m, t) => (t.computedEnd > m ? t.computedEnd : m),
-        rows[0].computedEnd,
-      )
-    : null;
+  const setTaskStart = useStore((s) => s.setTaskStart);
+  const setTaskFinish = useStore((s) => s.setTaskFinish);
+  const statusDate = project.schedule?.statusDate;
+
+  let rawStart: string | null = null;
+  let rawEnd: string | null = null;
+  for (const t of rows) {
+    const s = showBaseline && t.baselineStart && t.baselineStart < t.computedStart ? t.baselineStart : t.computedStart;
+    const e = showBaseline && t.baselineFinish && t.baselineFinish > t.computedEnd ? t.baselineFinish : t.computedEnd;
+    if (!rawStart || s < rawStart) rawStart = s;
+    if (!rawEnd || e > rawEnd) rawEnd = e;
+  }
+  if (statusDate && rawStart && rawEnd) {
+    if (statusDate < rawStart) rawStart = statusDate;
+    if (statusDate > rawEnd) rawEnd = statusDate;
+  }
 
   const language = useLanguage();
+  const tr = useT();
   const dateLocale = language === "es" ? es : enUS;
 
   const now = new Date();
   const start = rawStart ? new Date(`${rawStart}T00:00:00`) : now;
   const end = rawEnd ? new Date(`${rawEnd}T00:00:00`) : now;
   const range = buildTimelineRange(start, end, zoom);
-  const header = buildHeader(range, zoom, dateLocale);
-  const bands = weekendBands(range);
+  const header = buildHeader(range, zoom, dateLocale, cal);
+  // Weekends and holidays are shaded in Day and Week scale.
+  const bands = zoom === "month" ? [] : weekendBands(range, cal);
   const bodyHeight = rows.length * ROW_HEIGHT;
 
   const dragRef = useRef<DragInfo | null>(null);
@@ -76,20 +96,19 @@ export default function GanttChart({
   const [deltaPx, setDeltaPx] = useState(0);
   const [dragMode, setDragMode] = useState<DragMode | null>(null);
 
-  function beginDrag(
-    e: React.PointerEvent,
-    task: ComputedTask,
-    mode: DragMode,
-  ) {
+  function beginDrag(e: React.PointerEvent, task: ComputedTask, mode: DragMode) {
     e.stopPropagation();
     e.preventDefault();
     onSelect(task.id);
+    // Started tasks keep their actual start: they can't be dragged.
+    if (mode === "move" && task.actualStart) return;
+    if (mode === "resize" && (task.durationLocked || task.actualFinish)) return;
     dragRef.current = {
       taskId: task.id,
       mode,
       startClientX: e.clientX,
-      originStart: task.start,
-      originDuration: task.duration,
+      originStart: task.computedStart,
+      originEnd: task.computedEnd,
     };
     setDragTaskId(task.id);
     setDragMode(mode);
@@ -117,25 +136,13 @@ export default function GanttChart({
       setDragMode(null);
       setDeltaPx(0);
       if (!d) return;
-      const deltaCalendarDays = Math.round(
-        (e.clientX - d.startClientX) / range.pxPerDay,
-      );
+      const deltaCalendarDays = Math.round((e.clientX - d.startClientX) / range.pxPerDay);
       if (deltaCalendarDays === 0) return;
       if (d.mode === "move") {
-        const newStart = snapToBusinessDay(
-          toISO(addDays(fromISO(d.originStart), deltaCalendarDays)),
-        );
-        updateTask(projectId, d.taskId, { start: newStart });
+        setTaskStart(projectId, d.taskId, toISO(addDays(fromISO(d.originStart), deltaCalendarDays)));
       } else {
-        const originEnd = computeEndDate(d.originStart, d.originDuration);
-        const newEndCandidate = toISO(
-          addDays(fromISO(originEnd), deltaCalendarDays),
-        );
-        const newDuration = Math.max(
-          1,
-          businessDaysBetweenInclusive(d.originStart, newEndCandidate),
-        );
-        updateTask(projectId, d.taskId, { duration: newDuration });
+        const newEnd = toISO(addDays(fromISO(d.originEnd), deltaCalendarDays));
+        if (newEnd >= d.originStart) setTaskFinish(projectId, d.taskId, newEnd);
       }
     }
 
@@ -150,28 +157,50 @@ export default function GanttChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragTaskId, dragMode, range.pxPerDay, projectId]);
 
-  const indexById = new Map(rows.map((t, i) => [t.id, i]));
+  const indexById = useMemo(() => new Map(rows.map((t, i) => [t.id, i])), [rows]);
 
-  const connectors: { d: string; key: string }[] = [];
+  const xStart = (iso: string) => isoToX(range, iso);
+  const xEnd = (iso: string) => isoToX(range, iso) + range.pxPerDay;
+
+  // Connectors follow the link type: FS end→start, SS start→start, FF end→end, SF start→end.
+  const connectors: { d: string; key: string; critical: boolean }[] = [];
   rows.forEach((t) => {
     if (t.isSummary) return;
     const succIdx = indexById.get(t.id);
     if (succIdx === undefined) return;
-    t.predecessorIds.forEach((pid) => {
-      const predIdx = indexById.get(pid);
+    t.predecessors.forEach((l) => {
+      const predIdx = indexById.get(l.predecessorId);
       if (predIdx === undefined) return;
       const pred = rows[predIdx];
-      const predEndX = isoToX(range, pred.computedEnd) + range.pxPerDay;
-      const predY = predIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-      const succX = isoToX(range, t.computedStart);
-      const succY = succIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-      const midX = predEndX + 8;
+      const fromEnd = l.type === "FS" || l.type === "FF";
+      const toEnd = l.type === "FF" || l.type === "SF";
+      const px = pred.isMilestone
+        ? xStart(pred.computedStart) + range.pxPerDay / 2
+        : fromEnd
+          ? xEnd(pred.computedEnd)
+          : xStart(pred.computedStart);
+      const sx = t.isMilestone
+        ? xStart(t.computedStart) + range.pxPerDay / 2 - 6
+        : toEnd
+          ? xEnd(t.computedEnd)
+          : xStart(t.computedStart);
+      const py = predIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const sy = succIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const out = fromEnd ? px + 6 : px - 6;
+      const into = toEnd ? sx + 6 : sx - 6;
+      const d =
+        !toEnd && into >= out
+          ? `M ${px} ${py} H ${out} V ${sy} H ${sx}`
+          : `M ${px} ${py} H ${out} V ${sy + (sy > py ? -ROW_HEIGHT / 2 + 2 : ROW_HEIGHT / 2 - 2)} H ${into} V ${sy} H ${sx}`;
       connectors.push({
-        key: `${pid}->${t.id}`,
-        d: `M ${predEndX} ${predY} H ${midX} V ${succY} H ${succX}`,
+        key: `${l.predecessorId}->${t.id}`,
+        d,
+        critical: showCritical && pred.critical && t.critical,
       });
     });
   });
+
+  const statusX = statusDate ? xEnd(statusDate) : null;
 
   return (
     <div style={{ width: range.totalWidth }} className="relative shrink-0">
@@ -220,11 +249,7 @@ export default function GanttChart({
           <div
             key={t.id}
             onClick={() => onSelect(t.id)}
-            style={{
-              top: i * ROW_HEIGHT,
-              height: ROW_HEIGHT,
-              width: range.totalWidth,
-            }}
+            style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT, width: range.totalWidth }}
             className={`absolute left-0 cursor-pointer border-b ${
               t.id === selectedId ? "bg-green-50/70" : "border-neutral-50"
             }`}
@@ -237,16 +262,11 @@ export default function GanttChart({
           height={bodyHeight}
         >
           <defs>
-            <marker
-              id="arrow"
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M0,0 L8,4 L0,8 z" className="fill-neutral-400" />
+            <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L8,4 L0,8 z" fill="#a3a3a3" />
+            </marker>
+            <marker id="arrow-crit" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L8,4 L0,8 z" fill={CRITICAL_COLOR} />
             </marker>
           </defs>
           {connectors.map((c) => (
@@ -254,26 +274,35 @@ export default function GanttChart({
               key={c.key}
               d={c.d}
               fill="none"
-              className="stroke-neutral-400"
-              strokeWidth={1.5}
-              markerEnd="url(#arrow)"
+              stroke={c.critical ? CRITICAL_COLOR : "#a3a3a3"}
+              strokeOpacity={c.critical ? 0.8 : 1}
+              strokeWidth={1.3}
+              markerEnd={c.critical ? "url(#arrow-crit)" : "url(#arrow)"}
             />
           ))}
         </svg>
 
+        {/* Today (red) and status date (dashed blue) lines. */}
         <div
+          id="gantt-today-marker"
           style={{ left: todayX(range), height: bodyHeight }}
-          className="pointer-events-none absolute top-0 w-px bg-red-400"
+          className="pointer-events-none absolute top-0 z-[5] w-px bg-red-500"
         />
+        {statusX !== null && (
+          <div
+            style={{ left: statusX, height: bodyHeight }}
+            title={`${tr("statusDate")} ${statusDate}`}
+            className="pointer-events-none absolute top-0 z-[5] w-0 border-l-2 border-dashed border-blue-500"
+          />
+        )}
 
         {rows.map((t, i) => {
           const isDraggingThis = dragTaskId === t.id;
           const liveDelta = isDraggingThis ? deltaPx : 0;
           const activeDragMode = isDraggingThis ? dragMode : undefined;
 
-          let x = isoToX(range, t.computedStart);
-          const xEnd = isoToX(range, t.computedEnd) + range.pxPerDay;
-          let width = Math.max(xEnd - x, 4);
+          let x = xStart(t.computedStart);
+          let width = Math.max(xEnd(t.computedEnd) - x, 4);
           const top = i * ROW_HEIGHT;
 
           if (isDraggingThis && activeDragMode === "move") x += liveDelta;
@@ -281,92 +310,148 @@ export default function GanttChart({
             width = Math.max(range.pxPerDay, width + liveDelta);
           }
 
-          if (t.isMilestone) {
-            return (
+          const baselineBar =
+            showBaseline && t.baselineStart && t.baselineFinish ? (
               <div
-                key={t.id}
-                style={{ top, left: x, height: ROW_HEIGHT }}
-                className="absolute flex items-center"
-              >
-                <div
-                  onPointerDown={(e) => beginDrag(e, t, "move")}
-                  style={{
-                    marginLeft: range.pxPerDay / 2 - 6,
-                    backgroundColor: t.color || undefined,
-                  }}
-                  className={`h-3 w-3 rotate-45 cursor-grab ${
-                    t.color
-                      ? ""
-                      : t.id === selectedId
-                        ? "bg-green-600"
-                        : "bg-neutral-800"
-                  } ${t.id === selectedId ? "ring-2 ring-neutral-900" : ""}`}
-                />
-                <span className="ml-2 whitespace-nowrap text-[11px] text-neutral-600">
-                  {t.name}
-                </span>
+                key={`${t.id}-bl`}
+                style={{
+                  top: top + ROW_HEIGHT - 9,
+                  left: xStart(t.baselineStart),
+                  width: Math.max(xEnd(t.baselineFinish) - xStart(t.baselineStart), 3),
+                }}
+                title={`${tr("baselineToggle")}: ${t.baselineStart} → ${t.baselineFinish}`}
+                className="pointer-events-none absolute h-[4px] rounded-sm bg-neutral-400/80"
+              />
+            ) : null;
+
+          if (t.isMilestone) {
+            const color = showCritical && t.critical ? CRITICAL_COLOR : t.color || undefined;
+            return (
+              <div key={t.id}>
+                {baselineBar}
+                <div style={{ top, left: x, height: ROW_HEIGHT }} className="absolute flex items-center">
+                  <div
+                    onPointerDown={(e) => beginDrag(e, t, "move")}
+                    style={{ marginLeft: range.pxPerDay / 2 - 6, backgroundColor: color }}
+                    className={`h-3 w-3 rotate-45 ${t.actualStart ? "cursor-pointer" : "cursor-grab"} ${
+                      color ? "" : "bg-neutral-800"
+                    } ${t.id === selectedId ? "ring-2 ring-neutral-900" : ""}`}
+                  />
+                  <span className="ml-2 whitespace-nowrap text-[11px] text-neutral-600">
+                    {t.name} {t.computedStart.slice(8, 10)}/{t.computedStart.slice(5, 7)}
+                  </span>
+                </div>
               </div>
             );
           }
 
           if (t.isSummary) {
             return (
-              <div
-                key={t.id}
-                style={{ top, left: x, width, height: ROW_HEIGHT }}
-                className="absolute flex items-center"
-              >
-                <div className="relative w-full">
-                  <div className="h-[7px] w-full rounded-[1px] bg-neutral-800" />
-                  <div className="absolute -top-[3px] left-0 h-[13px] w-[3px] bg-neutral-800" />
-                  <div className="absolute -top-[3px] right-0 h-[13px] w-[3px] bg-neutral-800" />
+              <div key={t.id}>
+                {baselineBar}
+                <div style={{ top, left: x, width, height: ROW_HEIGHT }} className="absolute flex items-center">
+                  <div className="relative w-full">
+                    <div className="h-[7px] w-full rounded-[1px] bg-neutral-800" />
+                    <div className="absolute -top-[3px] left-0 h-[13px] w-[3px] bg-neutral-800" />
+                    <div className="absolute -top-[3px] right-0 h-[13px] w-[3px] bg-neutral-800" />
+                  </div>
+                  <span className="absolute left-full ml-2 whitespace-nowrap text-[11px] font-medium text-neutral-600">
+                    {t.computedCertified}%
+                  </span>
                 </div>
-                <span className="absolute left-full ml-2 whitespace-nowrap text-[11px] font-medium text-neutral-600">
-                  {t.computedProgress}%
-                </span>
               </div>
             );
           }
 
-          const trackStyle = t.color
-            ? { backgroundColor: hexToRgba(t.color, 0.35) }
-            : undefined;
-          const fillStyle = {
-            width: `${Math.min(100, Math.max(0, t.progress))}%`,
-            backgroundColor: t.color || undefined,
-          };
+          const critical = showCritical && t.critical;
+          const base = critical ? CRITICAL_COLOR : t.color || DEFAULT_TASK_COLOR;
+          const trackColor = hexToRgba(base, critical || t.color ? 0.45 : 0.75);
+          const certColor = shade(base, critical ? 0.85 : 0.7);
+          const physColor = shade(base, 0.35);
+
+          // Interruptions: dotted gaps inside the bar.
+          const gaps: { left: number; width: number }[] = [];
+          for (const it of t.interruptions ?? []) {
+            const a = dayNum(it.from);
+            const b = it.to ? dayNum(it.to) : a;
+            const s = dayNum(t.computedStart);
+            const e = dayNum(t.computedEnd);
+            const from = Math.max(a, s);
+            const to = Math.min(b, e);
+            if (to < from) continue;
+            gaps.push({
+              left: xStart(isoOf(from)) - x + (isDraggingThis && activeDragMode === "move" ? liveDelta : 0),
+              width: (to - from + 1) * range.pxPerDay,
+            });
+          }
 
           return (
-            <div
-              key={t.id}
-              style={{ top, left: x, width, height: ROW_HEIGHT }}
-              className="group absolute flex items-center"
-            >
+            <div key={t.id}>
+              {baselineBar}
               <div
-                onPointerDown={(e) => beginDrag(e, t, "move")}
-                style={trackStyle}
-                className={`relative h-4 w-full cursor-grab overflow-hidden rounded ${
-                  t.color
-                    ? ""
-                    : t.id === selectedId
-                      ? "bg-green-400"
-                      : "bg-green-400/90"
-                } ${t.id === selectedId ? "ring-2 ring-neutral-900" : ""}`}
+                style={{ top, left: x, width, height: ROW_HEIGHT }}
+                className="group absolute flex items-center"
               >
                 <div
-                  style={fillStyle}
-                  className={`h-full ${t.color ? "" : "bg-green-700"}`}
-                />
+                  onPointerDown={(e) => beginDrag(e, t, "move")}
+                  style={{ backgroundColor: trackColor }}
+                  title={`${t.displayCode} ${t.name}\n${t.computedStart} → ${t.computedEnd}`}
+                  className={`relative -mt-1 h-[14px] w-full overflow-hidden rounded-sm ${
+                    t.actualStart ? "cursor-pointer" : "cursor-grab"
+                  } ${t.id === selectedId ? "ring-2 ring-neutral-900" : ""}`}
+                >
+                  {/* Certified % fill */}
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, t.certified ?? 0))}%`,
+                      backgroundColor: certColor,
+                    }}
+                    className="h-full"
+                  />
+                  {/* Physical progress: dark strip at the base */}
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, t.progress))}%`,
+                      backgroundColor: physColor,
+                    }}
+                    className="absolute bottom-0 left-0 h-[4px]"
+                  />
+                  {gaps.map((g, gi) => (
+                    <div
+                      key={gi}
+                      style={{ left: g.left, width: g.width }}
+                      className="absolute top-0 h-full border-x border-dotted border-neutral-500 bg-white"
+                    >
+                      <div className="mt-[6px] h-0 border-t-2 border-dotted border-neutral-400" />
+                    </div>
+                  ))}
+                </div>
+                {!t.durationLocked && !t.actualFinish && (
+                  <div
+                    onPointerDown={(e) => beginDrag(e, t, "resize")}
+                    className="absolute right-0 top-0 h-full w-2 cursor-ew-resize opacity-0 group-hover:opacity-100"
+                  >
+                    <div className="mx-auto h-full w-0.5 bg-neutral-900/40" />
+                  </div>
+                )}
+                <span className="absolute left-full ml-2 whitespace-nowrap text-[11px] text-neutral-600">
+                  {t.name}
+                  {t.deadline && t.deadline < t.computedEnd && (
+                    <span className="ml-1 text-red-600" title={`${tr("deadline")} ${t.deadline}`}>
+                      ⚑
+                    </span>
+                  )}
+                </span>
               </div>
-              <div
-                onPointerDown={(e) => beginDrag(e, t, "resize")}
-                className="absolute right-0 top-0 h-full w-2 cursor-ew-resize opacity-0 group-hover:opacity-100"
-              >
-                <div className="mx-auto h-full w-0.5 bg-neutral-900/40" />
-              </div>
-              <span className="absolute left-full ml-2 whitespace-nowrap text-[11px] text-neutral-600">
-                {t.name}
-              </span>
+              {t.deadline && (
+                <div
+                  style={{ top: top + 4, left: xEnd(t.deadline) - 4 }}
+                  title={`${tr("deadline")} ${t.deadline}`}
+                  className="pointer-events-none absolute text-[9px] leading-none text-red-500"
+                >
+                  ▼
+                </div>
+              )}
             </div>
           );
         })}

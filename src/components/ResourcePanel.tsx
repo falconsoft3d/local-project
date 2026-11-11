@@ -28,7 +28,7 @@ export default function ResourcePanel({
   );
 
   return (
-    <Modal title={t("resourcesTitle")} onClose={onClose} width="max-w-lg">
+    <Modal title={t("resourcesTitle")} onClose={onClose} width="max-w-3xl">
       <form
         className="mb-4 flex gap-2"
         onSubmit={(e) => {
@@ -58,14 +58,14 @@ export default function ResourcePanel({
         </p>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex max-h-[65vh] flex-col gap-2 overflow-auto">
         {project.resources.map((r) => (
           <div
             key={r.id}
             className="flex items-center gap-2 rounded-md border border-neutral-200 p-2"
           >
-            <div className="flex gap-1">
-              {PALETTE.map((c) => (
+            <div className="flex shrink-0 gap-0.5">
+              {PALETTE.slice(0, 6).map((c) => (
                 <button
                   key={c}
                   onClick={() => updateResource(projectId, r.id, { color: c })}
@@ -82,7 +82,7 @@ export default function ResourcePanel({
               onChange={(e) =>
                 updateResource(projectId, r.id, { name: e.target.value })
               }
-              className="flex-1 rounded border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-neutral-200 focus:border-green-500"
+              className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-neutral-200 focus:border-green-500"
             />
             <select
               value={r.kind ?? "labor"}
@@ -96,7 +96,44 @@ export default function ResourcePanel({
               <option value="labor">{t("resourceKindLabor")}</option>
               <option value="material">{t("resourceKindMaterial")}</option>
               <option value="equipment">{t("resourceKindEquipment")}</option>
+              <option value="subcontract">{t("resourceKindSubcontract")}</option>
             </select>
+            <label className="flex items-center gap-1 text-[11px] text-neutral-500" title={t("priceHint")}>
+              {t("price")}
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={r.price ?? ""}
+                onChange={(e) =>
+                  updateResource(projectId, r.id, {
+                    price: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+                  })
+                }
+                className="w-16 rounded border border-neutral-200 px-1 py-0.5 text-right outline-none focus:border-green-500"
+              />
+              <input
+                value={r.unit ?? ""}
+                placeholder="ud"
+                onChange={(e) => updateResource(projectId, r.id, { unit: e.target.value || undefined })}
+                className="w-9 rounded border border-neutral-200 px-1 py-0.5 outline-none focus:border-green-500"
+              />
+            </label>
+            {(r.kind === "labor" || r.kind === "equipment" || !r.kind) && (
+              <label className="flex items-center gap-1 text-[11px] text-neutral-500" title={t("maxUnitsHint")}>
+                {t("maxUnits")}
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={r.maxUnits ?? 0}
+                  onChange={(e) =>
+                    updateResource(projectId, r.id, { maxUnits: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  className="w-12 rounded border border-neutral-200 px-1 py-0.5 text-right outline-none focus:border-green-500"
+                />
+              </label>
+            )}
             <span className="text-[11px] text-neutral-400">
               {usage.get(r.id) ?? 0}{" "}
               {(usage.get(r.id) ?? 0) === 1

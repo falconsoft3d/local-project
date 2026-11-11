@@ -1,3 +1,10 @@
+import { scheduleTranslations } from "./i18n-schedule";
+import { networkTranslations } from "./i18n-network";
+import { resourcesTranslations } from "./i18n-resources";
+import { evmTranslations } from "./i18n-evm";
+import { exchangeTranslations } from "./i18n-exchange";
+import { budgetTranslations } from "./i18n-budget";
+
 export type Language = "en" | "es";
 
 type Dict = Record<string, string>;
@@ -239,6 +246,19 @@ export const translations: Record<Language, Dict> = {
     cookieBannerAccept: "Aceptar",
   },
 };
+
+// Feature modules keep their strings in their own files (i18n-*.ts).
+for (const mod of [
+  scheduleTranslations,
+  networkTranslations,
+  resourcesTranslations,
+  evmTranslations,
+  exchangeTranslations,
+  budgetTranslations,
+]) {
+  Object.assign(translations.en, mod.en);
+  Object.assign(translations.es, mod.es);
+}
 
 export function translate(
   lang: Language,
